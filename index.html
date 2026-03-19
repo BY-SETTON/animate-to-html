@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Image Animation Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e0f;
+  --panel:#141416;
+  --panel2:#1a1a1e;
+  --border:#252528;
+  --accent:#e8c97a;
+  --accent-dim:#3a3010;
+  --blue:#7ab8e8;
+  --blue-dim:#0e1e2e;
+  --red:#e87a7a;
+  --text:#ddd8cc;
+  --muted:#555250;
+  --radius:8px;
+  --mono:'DM Mono',monospace;
+  --serif:'DM Serif Display',serif;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--mono);
+  display:grid;
+  grid-template-rows:50px 1fr;
+  grid-template-columns:290px 1fr 270px;
+  grid-template-areas:"top top top" "left stage right";
+}
+
+/* ── Topbar ── */
+.topbar{
+  grid-area:top;background:var(--panel);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:14px;
+}
+.topbar h1{font-family:var(--serif);font-size:1.1rem;font-weight:400;letter-spacing:.05em;flex:1}
+.tbtn{
+  background:none;border:1px solid var(--border);color:var(--text);
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;
+  padding:6px 14px;border-radius:4px;cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.tbtn:hover{border-color:var(--accent);color:var(--accent)}
+.tbtn.primary{background:var(--accent);border-color:var(--accent);color:#0e0e0f;font-weight:600}
+.tbtn.primary:hover{opacity:.82}
+
+/* ── Left panel ── */
+.left{
+  grid-area:left;background:var(--panel);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.plabel{
+  font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);padding:14px 16px 6px;
+}
+.pdivider{height:1px;background:var(--border);margin:4px 0}
+
+/* Upload */
+.upload-zone{
+  margin:8px 14px;border:1px dashed var(--border);border-radius:var(--radius);
+  padding:12px;text-align:center;cursor:pointer;
+  font-size:.6rem;letter-spacing:.12em;color:var(--muted);
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.upload-zone:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+#file-input{display:none}
+
+/* List */
+.img-list{flex:1;overflow-y:auto;padding:4px 0}
+.img-list::-webkit-scrollbar{width:3px}
+.img-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.img-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 14px;cursor:pointer;
+  border-left:2px solid transparent;transition:all .13s;
+}
+.img-row:hover{background:var(--panel2)}
+.img-row.sel{border-left-color:var(--accent);background:var(--panel2)}
+.img-row-thumb{width:42px;height:32px;object-fit:cover;border-radius:4px;background:var(--border);flex-shrink:0}
+.img-row-info{flex:1;min-width:0}
+.img-row-name{font-size:.64rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.img-row-sub{font-size:.54rem;color:var(--muted);margin-top:2px}
+.img-row-order{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
+.order-btn{
+  background:none;border:1px solid var(--border);color:var(--muted);
+  font-size:.6rem;width:18px;height:14px;cursor:pointer;border-radius:2px;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+  transition:all .12s;padding:0;
+}
+.order-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.order-btn:disabled{opacity:.2;cursor:default}
+.img-row-del{background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:2px 5px;border-radius:3px;opacity:0;transition:all .13s}
+.img-row:hover .img-row-del{opacity:1}
+.img-row-del:hover{color:var(--red)}
+
+/* ── Stage ── */
+.stage-wrap{
+  grid-area:stage;position:relative;overflow:hidden;
+  background:
+    radial-gradient(ellipse at 20% 20%,#1e1a0e 0%,transparent 55%),
+    radial-gradient(ellipse at 80% 80%,#0e141e 0%,transparent 55%),
+    var(--bg);
+}
+.stage-wrap::before{
+  content:'';position:absolute;inset:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:36px 36px;opacity:.3;pointer-events:none;
+}
+#stage{position:absolute;inset:0}
+
+/* Cards */
+.s-card{
+  position:absolute;width:165px;border-radius:7px;
+  box-shadow:0 6px 26px rgba(0,0,0,.7);border:2px solid transparent;
+  cursor:grab;user-select:none;
+  transform:translate(-50%,-50%);
+}
+.s-card:active{cursor:grabbing}
+.s-card.sel{border-color:var(--accent);box-shadow:0 6px 26px rgba(232,201,122,.18)}
+.s-card img{width:100%;object-fit:cover;display:block;pointer-events:none}
+.s-card-name{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.75));
+  padding:18px 8px 6px;font-size:.52rem;letter-spacing:.08em;color:var(--accent);
+  pointer-events:none;
+}
+
+/* Start marker */
+.s-marker{
+  position:absolute;width:32px;height:32px;border-radius:50%;
+  background:var(--accent);border:2px solid rgba(255,255,255,.35);
+  cursor:grab;z-index:30;transform:translate(-50%,-50%);
+  box-shadow:0 2px 18px rgba(232,201,122,.55), 0 0 0 4px rgba(232,201,122,.15);
+  display:none;align-items:center;justify-content:center;
+  font-size:.58rem;font-weight:700;color:#0e0e0f;user-select:none;
+  letter-spacing:.05em;
+}
+.s-marker:active{cursor:grabbing;box-shadow:0 2px 22px rgba(232,201,122,.8), 0 0 0 6px rgba(232,201,122,.2)}
+.s-marker.on{display:flex}
+
+#arrow-svg{position:absolute;inset:0;pointer-events:none;z-index:15;width:100%;height:100%}
+
+/* Stage empty hint */
+.stage-hint{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;pointer-events:none;
+  color:var(--muted);font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;opacity:.5;
+}
+
+/* Flash overlay for preview reset */
+.stage-flash{
+  position:absolute;inset:0;background:var(--bg);z-index:50;
+  opacity:0;pointer-events:none;transition:opacity .12s;
+}
+.stage-flash.on{opacity:1}
+
+/* ── Right panel ── */
+.right{
+  grid-area:right;background:var(--panel);
+  border-left:1px solid var(--border);
+  overflow-y:auto;display:flex;flex-direction:column;
+}
+.right::-webkit-scrollbar{width:3px}
+.right::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.rpanel-empty{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:8px;color:var(--muted);
+  font-size:.6rem;letter-spacing:.14em;text-align:center;padding:24px;
+}
+
+/* Effects grid */
+.fx-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:10px 14px}
+.fx-chip{
+  background:var(--panel2);border:1px solid var(--border);border-radius:5px;
+  padding:9px 6px;text-align:center;cursor:pointer;font-size:.58rem;
+  letter-spacing:.06em;transition:all .13s;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.fx-chip .icon{font-size:1.05rem}
+.fx-chip:hover{border-color:var(--accent);color:var(--accent)}
+.fx-chip.on{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
+
+/* Sliders */
+.rfield{padding:0 14px 11px;display:flex;flex-direction:column;gap:5px}
+.rfield label{
+  font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.rfield label em{color:var(--accent);font-style:normal;letter-spacing:0}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:3px;
+  background:var(--border);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;
+  background:var(--accent);border-radius:50%;
+  box-shadow:0 0 0 2px var(--accent-dim);
+}
+
+/* Easing */
+.ease-row{display:flex;flex-wrap:wrap;gap:5px;padding:4px 14px 14px}
+.ease-chip{
+  background:var(--panel2);border:1px solid var(--border);border-radius:4px;
+  padding:5px 9px;font-size:.54rem;letter-spacing:.07em;cursor:pointer;transition:all .13s;
+}
+.ease-chip:hover{border-color:var(--accent);color:var(--accent)}
+.ease-chip.on{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
+
+/* Bounding box */
+#bbox{
+  position:absolute;
+  border:2px solid #7ab8e8;
+  border-radius:4px;
+  cursor:default;
+  z-index:5;
+  box-shadow:0 0 0 1px rgba(122,184,232,.15), inset 0 0 0 1px rgba(122,184,232,.06);
+  background:rgba(122,184,232,.04);
+  pointer-events:none;
+}
+#bbox .bbox-label{
+  position:absolute;top:-22px;left:0;
+  font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;
+  color:#7ab8e8;background:var(--bg);padding:2px 6px;border-radius:3px;
+  border:1px solid #7ab8e8;white-space:nowrap;pointer-events:none;
+}
+#bbox .bbox-dims{
+  position:absolute;bottom:-22px;right:0;
+  font-size:.52rem;letter-spacing:.06em;
+  color:#7ab8e8;opacity:.8;pointer-events:none;
+}
+/* Resize handles — 8 corners/edges */
+.bbox-handle{
+  position:absolute;width:10px;height:10px;
+  background:#7ab8e8;border:2px solid var(--bg);
+  border-radius:2px;z-index:6;
+  pointer-events:all;
+}
+.bbox-handle.nw{top:-5px;left:-5px;cursor:nw-resize}
+.bbox-handle.n {top:-5px;left:50%;transform:translateX(-50%);cursor:n-resize}
+.bbox-handle.ne{top:-5px;right:-5px;cursor:ne-resize}
+.bbox-handle.e {top:50%;right:-5px;transform:translateY(-50%);cursor:e-resize}
+.bbox-handle.se{bottom:-5px;right:-5px;cursor:se-resize}
+.bbox-handle.s {bottom:-5px;left:50%;transform:translateX(-50%);cursor:s-resize}
+.bbox-handle.sw{bottom:-5px;left:-5px;cursor:sw-resize}
+.bbox-handle.w {top:50%;left:-5px;transform:translateY(-50%);cursor:w-resize}
+
+/* Position fields in right panel */
+.pos-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 14px 14px}
+.pos-field{display:flex;flex-direction:column;gap:4px}
+.pos-field label{font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.pos-field input[type=number]{
+  background:var(--panel2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:.68rem;
+  padding:6px 8px;border-radius:4px;outline:none;width:100%;
+  transition:border-color .13s;
+}
+.pos-field input[type=number]:focus{border-color:var(--blue)}
+.pos-field input[type=number]::-webkit-inner-spin-button{opacity:.4}
+.tip-box{
+  margin:8px 14px;padding:10px 12px;
+  background:var(--accent-dim);border:1px solid #4a3f1e;border-radius:6px;
+  font-size:.58rem;line-height:1.7;color:#b09850;
+}
+.tip-box strong{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <h1>Image Animation Editor</h1>
+  <span style="font-size:.6rem;color:var(--muted);letter-spacing:.07em;flex:1">
+    Drag <span style="color:var(--accent)">● S</span> to set start point &nbsp;·&nbsp; drag images to reposition
+  </span>
+  <button class="tbtn" id="btn-preview">▶ Preview</button>
+  <button class="tbtn primary" id="btn-export">↓ Export HTML</button>
+</div>
+
+<!-- Left: images -->
+<div class="left">
+  <div class="plabel">Images <span id="img-count" style="color:var(--muted)">(0)</span></div>
+  <div class="upload-zone" id="upload-zone">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    Upload / drag images here
+  </div>
+  <input type="file" id="file-input" accept="image/*" multiple/>
+  <div style="padding:4px 14px 6px;">
+    <button class="tbtn" id="btn-add-text" style="width:100%;font-size:.58rem;letter-spacing:.14em">＋ Add Text Layer</button>
+  </div>
+  <div style="padding:0 14px 8px;display:flex;flex-direction:column;gap:4px">
+    <button class="tbtn" id="btn-upload-font" style="width:100%;font-size:.58rem;letter-spacing:.14em">↥ Upload Font (.ttf)</button>
+    <input type="file" id="font-input" accept=".ttf,.otf" style="display:none"/>
+    <div id="font-label" style="font-size:.55rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+      No custom font
+    </div>
+  </div>
+  <div class="img-list" id="img-list"></div>
+</div>
+
+<!-- Stage -->
+<div class="stage-wrap">
+  <div class="stage-hint" id="stage-hint">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Upload images to begin
+  </div>
+  <div id="stage">
+    <svg id="arrow-svg"></svg>
+    <div id="s-marker" class="s-marker">S</div>
+    <!-- Bounding box -->
+    <div id="bbox">
+      <div class="bbox-label">Scene</div>
+      <div class="bbox-dims" id="bbox-dims">800 × 500</div>
+      <div class="bbox-handle nw" data-dir="nw"></div>
+      <div class="bbox-handle n"  data-dir="n"></div>
+      <div class="bbox-handle ne" data-dir="ne"></div>
+      <div class="bbox-handle e"  data-dir="e"></div>
+      <div class="bbox-handle se" data-dir="se"></div>
+      <div class="bbox-handle s"  data-dir="s"></div>
+      <div class="bbox-handle sw" data-dir="sw"></div>
+      <div class="bbox-handle w"  data-dir="w"></div>
+    </div>
+  </div>
+  <div class="stage-flash" id="stage-flash"></div>
+</div>
+
+<!-- Right: effects panel -->
+<div class="right" id="right">
+  <div class="rpanel-empty" id="rpanel-empty">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Select an image<br/>to edit its effects
+  </div>
+  <div id="rpanel" style="display:none;flex-direction:column">
+
+    <div class="plabel" style="padding-top:14px;color:#7ab8e8">Scene Bounds</div>
+    <div class="pos-grid">
+      <div class="pos-field"><label>X (px)</label><input type="number" id="bb-x" value="60"/></div>
+      <div class="pos-field"><label>Y (px)</label><input type="number" id="bb-y" value="60"/></div>
+      <div class="pos-field"><label>Width</label><input type="number" id="bb-w" value="800"/></div>
+      <div class="pos-field"><label>Height</label><input type="number" id="bb-h" value="500"/></div>
+    </div>
+    <div style="padding:0 14px 10px;font-size:.56rem;color:var(--muted);line-height:1.7">
+      X / Y set the position of the scene on the exported page. Drag or resize the blue box on the canvas.
+    </div>
+    <div style="height:1px;background:var(--border)"></div>
+    <div id="img-section" style="display:none">
+    <div class="plabel" style="padding-top:14px">Layer Order</div>
+    <div class="rfield">
+      <label>Z-Index <em id="v-zindex">1</em></label>
+      <input type="range" id="s-zindex" min="1" max="20" step="1" value="1"/>
+    </div>
+    <div class="rfield">
+      <label>Size <em id="v-size">100%</em></label>
+      <input type="range" id="s-size" min="0.4" max="2" step="0.05" value="1"/>
+    </div>
+    <div style="padding:0 14px 6px;font-size:.56rem;color:var(--muted)">Higher = in front. Use ↑↓ in the image list to reorder, or drag the slider.</div>
+    <div style="height:1px;background:var(--border)"></div>
+    <div class="plabel" style="padding-top:14px">Entrance Effects <span style="color:var(--muted);font-size:.5rem">(pick multiple)</span></div>
+    <div class="fx-grid" id="fx-grid">
+      <div class="fx-chip" data-fx="fade"><span class="icon">✦</span>Fade</div>
+      <div class="fx-chip" data-fx="slideUp"><span class="icon">↑</span>Slide Up</div>
+      <div class="fx-chip" data-fx="slideDown"><span class="icon">↓</span>Slide Down</div>
+      <div class="fx-chip" data-fx="slideLeft"><span class="icon">←</span>Slide Left</div>
+      <div class="fx-chip" data-fx="slideRight"><span class="icon">→</span>Slide Right</div>
+      <div class="fx-chip" data-fx="scaleUp"><span class="icon">⊞</span>Scale Up</div>
+      <div class="fx-chip" data-fx="scaleDown"><span class="icon">⊟</span>Scale Down</div>
+      <div class="fx-chip" data-fx="rotateIn"><span class="icon">↻</span>Rotate In</div>
+      <div class="fx-chip" data-fx="blurIn"><span class="icon">◎</span>Blur In</div>
+      <div class="fx-chip" data-fx="flipX"><span class="icon">⇄</span>Flip X</div>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:2px 0"></div>
+    <div id="text-fields" style="display:none">
+      <div class="plabel" style="padding-top:12px">Text</div>
+      <div class="rfield">
+        <label>Content</label>
+        <textarea id="t-content" rows="2" style="resize:vertical;background:var(--panel2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:.7rem;padding:6px 8px;border-radius:4px;outline:none;width:100%;"></textarea>
+      </div>
+      <div class="rfield">
+        <label>Font size <em id="v-tsize">24px</em></label>
+        <input type="range" id="s-tsize" min="1" max="72" step="1" value="24"/>
+      </div>
+      <div class="rfield">
+        <label>Color</label>
+        <input type="color" id="t-color" value="#ffffff" style="background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:3px 4px;height:26px;cursor:pointer;"/>
+      </div>
+    </div>
+    <div class="plabel" style="padding-top:12px">Timing</div>
+
+    <div class="rfield">
+      <label>Duration <em id="v-dur">0.7s</em></label>
+      <input type="range" id="s-dur" min="0.1" max="3" step="0.05" value="0.7"/>
+    </div>
+    <div class="rfield">
+      <label>Delay <em id="v-delay">0s</em></label>
+      <input type="range" id="s-delay" min="0" max="3" step="0.05" value="0"/>
+    </div>
+    <div class="rfield">
+      <label>Start opacity <em id="v-opa">0</em></label>
+      <input type="range" id="s-opa" min="0" max="1" step="0.05" value="0"/>
+    </div>
+    <div class="rfield">
+      <label>Slide distance (px) <em id="v-dist">60</em></label>
+      <input type="range" id="s-dist" min="10" max="300" step="5" value="60"/>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:2px 0"></div>
+    <div class="plabel" style="padding-top:12px">Easing</div>
+    <div class="ease-row" id="ease-row">
+      <div class="ease-chip on" data-ease="cubic-bezier(0.22,1,0.36,1)">Ease Out</div>
+      <div class="ease-chip" data-ease="cubic-bezier(0.4,0,1,1)">Ease In</div>
+      <div class="ease-chip" data-ease="cubic-bezier(0.4,0,0.2,1)">Ease InOut</div>
+      <div class="ease-chip" data-ease="linear">Linear</div>
+      <div class="ease-chip" data-ease="cubic-bezier(0.34,1.56,0.64,1)">Spring</div>
+      <div class="ease-chip" data-ease="steps(6,end)">Stepped</div>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:2px 0"></div>
+    <div class="plabel" style="padding-top:12px">Start Position</div>
+    <div class="tip-box">
+      <strong>Drag the ● S</strong> marker to set where the selected image animates from. It will travel from that point to its resting position.
+    </div>
+    <div style="padding-bottom:16px"></div>
+    </div><!-- end img-section -->
+  </div><!-- end rpanel -->
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────
+let images = [], selectedId = null, seq = 0;
+let customFont = null; // { src: dataURL, name: string }
+
+// Bounding box state (canvas-relative px)
+let bbox = { x: 60, y: 60, w: 800, h: 500 };
+
+function defCfg() {
+  return {
+    fx:['fade'],
+    dur:0.7,
+    delay:0,
+    opa:0,
+    dist:60,
+    ease:'cubic-bezier(0.22,1,0.36,1)',
+    zIndex:1,
+    size:1,
+    text:'',
+    fontSize:24,
+    color:'#ffffff',
+    weight:'600'
+  };
+}
+
+// ─── DOM ─────────────────────────────────────────
+const stage      = document.getElementById('stage');
+const arrowSvg   = document.getElementById('arrow-svg');
+const sMarker    = document.getElementById('s-marker');
+const flash      = document.getElementById('stage-flash');
+const bboxEl     = document.getElementById('bbox');
+const bboxDims   = document.getElementById('bbox-dims');
+const hint       = document.getElementById('stage-hint');
+const imgListEl  = document.getElementById('img-list');
+const imgCount   = document.getElementById('img-count');
+const rpEmpty    = document.getElementById('rpanel-empty');
+const rpanel     = document.getElementById('rpanel');
+const fxGrid     = document.getElementById('fx-grid');
+const easeRow    = document.getElementById('ease-row');
+const txtFields  = document.getElementById('text-fields');
+const fontInput  = document.getElementById('font-input');
+const fontLabel  = document.getElementById('font-label');
+
+// ─── Bounding Box ─────────────────────────────────
+function renderBbox() {
+  bboxEl.style.left   = bbox.x + 'px';
+  bboxEl.style.top    = bbox.y + 'px';
+  bboxEl.style.width  = bbox.w + 'px';
+  bboxEl.style.height = bbox.h + 'px';
+  bboxDims.textContent = `${Math.round(bbox.w)} × ${Math.round(bbox.h)}`;
+  // Sync number inputs
+  const bx = document.getElementById('bb-x');
+  if (bx) {
+    document.getElementById('bb-x').value = Math.round(bbox.x);
+    document.getElementById('bb-y').value = Math.round(bbox.y);
+    document.getElementById('bb-w').value = Math.round(bbox.w);
+    document.getElementById('bb-h').value = Math.round(bbox.h);
+  }
+}
+
+// Drag the bbox body to reposition - DISABLED, bbox is resize-only
+// bboxEl drag removed
+
+// Resize via handles
+bboxEl.querySelectorAll('.bbox-handle').forEach(handle => {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const dir = handle.dataset.dir;
+    const ox = e.clientX, oy = e.clientY;
+    const { x, y, w, h } = bbox;
+    const MIN = 80;
+    const mv = e2 => {
+      const dx = e2.clientX - ox, dy = e2.clientY - oy;
+      if (dir.includes('e')) bbox.w = Math.max(MIN, w + dx);
+      if (dir.includes('s')) bbox.h = Math.max(MIN, h + dy);
+      if (dir.includes('w')) { bbox.w = Math.max(MIN, w - dx); bbox.x = x + dx; if (bbox.w === MIN) bbox.x = x + w - MIN; }
+      if (dir.includes('n')) { bbox.h = Math.max(MIN, h - dy); bbox.y = y + dy; if (bbox.h === MIN) bbox.y = y + h - MIN; }
+      renderBbox();
+    };
+    const up = () => { window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); };
+    window.addEventListener('mousemove', mv);
+    window.addEventListener('mouseup', up);
+  });
+});
+
+// Number inputs → bbox
+['bb-x','bb-y','bb-w','bb-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    const v = parseFloat(this.value) || 0;
+    if (id === 'bb-x') bbox.x = v;
+    if (id === 'bb-y') bbox.y = v;
+    if (id === 'bb-w') bbox.w = Math.max(80, v);
+    if (id === 'bb-h') bbox.h = Math.max(80, v);
+    renderBbox();
+  });
+});
+
+// Initial render
+renderBbox();
+renderRPanel();
+
+// ─── Upload ───────────────────────────────────────
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('click', () => document.getElementById('file-input').click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.style.borderColor='var(--accent)' });
+uploadZone.addEventListener('dragleave', () => uploadZone.style.borderColor='');
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.style.borderColor='';
+  handleFiles([...e.dataTransfer.files]);
+});
+document.getElementById('file-input').addEventListener('change', e => handleFiles([...e.target.files]));
+
+// Upload custom font (.ttf / .otf)
+document.getElementById('btn-upload-font').addEventListener('click', () => fontInput.click());
+fontInput.addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    customFont = { src: ev.target.result, name: file.name.replace(/\.[^.]+$/,'') };
+    // Inject @font-face for live preview
+    let styleEl = document.getElementById('custom-font-style');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'custom-font-style';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+@font-face{
+  font-family:'SceneCustomFont';
+  src:url(${customFont.src}) format('truetype');
+  font-weight:normal;
+  font-style:normal;
+}`;
+    fontLabel.textContent = `Font: ${customFont.name}`;
+    renderStage();
+  };
+  r.readAsDataURL(file);
+  // reset so selecting the same file again still triggers change
+  e.target.value = '';
+});
+
+// Add text layer
+document.getElementById('btn-add-text').addEventListener('click', () => {
+  const id = ++seq;
+  const n  = images.length;
+  const col = n % 3, row = Math.floor(n / 3);
+  const endX = 40  + col * 210;
+  const endY = 40  + row * 185;
+  const startX = Math.max(10, endX - 120);
+  const startY = Math.max(10, endY - 100);
+  const cfg = defCfg();
+  cfg.text = 'Your text';
+  images.push({ id, type:'text', src:'', name:'Text', endX, endY, startX, startY, cfg });
+  images[images.length - 1].cfg.zIndex = images.length;
+  renderList(); renderStage(); selectImg(id);
+});
+
+function handleFiles(files) {
+  files.filter(f=>f.type.startsWith('image/')).forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => addImg(ev.target.result, f.name.replace(/\.[^.]+$/,''));
+    r.readAsDataURL(f);
+  });
+}
+
+function addImg(src, name) {
+  const id = ++seq;
+  const n  = images.length;
+  const col = n % 3, row = Math.floor(n / 3);
+  const endX = 40  + col * 210;
+  const endY = 40  + row * 185;
+  // Default start: visibly above-left of the end position, on-canvas
+  const startX = Math.max(10, endX - 120);
+  const startY = Math.max(10, endY - 100);
+  images.push({ id, type:'image', src, name, endX, endY, startX, startY, cfg: defCfg() });
+  // Auto-assign z-index as next in stack
+  images[images.length - 1].cfg.zIndex = images.length;
+  renderList(); renderStage(); selectImg(id);
+}
+
+// ─── List ─────────────────────────────────────────
+function renderList() {
+  imgListEl.innerHTML = '';
+  imgCount.textContent = `(${images.length})`;
+  hint.style.display = images.length ? 'none' : 'flex';
+  images.forEach((img, idx) => {
+    const row = document.createElement('div');
+    row.className = 'img-row' + (img.id === selectedId ? ' sel' : '');
+    row.dataset.id = img.id;
+    const isText = img.type === 'text';
+    row.innerHTML = `
+      <div class="img-row-thumb" style="display:flex;align-items:center;justify-content:center;font-size:.7rem;">
+        ${isText ? 'T' : `<img src="${img.src}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"/>`}
+      </div>
+      <div class="img-row-info">
+        <div class="img-row-name">${isText ? (img.cfg.text || 'Text') : img.name}</div>
+        <div class="img-row-sub">${img.cfg.fx.join(' + ') || 'no effects'} &nbsp;·&nbsp; z:${img.cfg.zIndex} &nbsp;·&nbsp; ${Math.round((img.cfg.size ?? 1)*100)}%</div>
+      </div>
+      <div class="img-row-order">
+        <button class="order-btn" data-dir="up"   title="Bring forward" ${idx === 0 ? 'disabled' : ''}>↑</button>
+        <button class="order-btn" data-dir="down" title="Send back"     ${idx === images.length - 1 ? 'disabled' : ''}>↓</button>
+      </div>
+      <button class="img-row-del" title="Remove">✕</button>`;
+    row.addEventListener('click', e => {
+      if (e.target.classList.contains('img-row-del')) return;
+      if (e.target.classList.contains('order-btn')) return;
+      selectImg(img.id);
+    });
+    row.querySelector('.img-row-del').addEventListener('click', () => removeImg(img.id));
+    row.querySelectorAll('.order-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        reorderImg(img.id, btn.dataset.dir);
+      });
+    });
+    imgListEl.appendChild(row);
+  });
+}
+
+function reorderImg(id, dir) {
+  const idx = images.findIndex(i => i.id === id);
+  if (dir === 'up'   && idx > 0)                  { [images[idx-1], images[idx]] = [images[idx], images[idx-1]]; }
+  if (dir === 'down' && idx < images.length - 1)  { [images[idx], images[idx+1]] = [images[idx+1], images[idx]]; }
+  // Reassign z-indices to match visual order (bottom of list = z:1, top = z:n)
+  images.forEach((img, i) => { img.cfg.zIndex = images.length - i; });
+  renderList(); renderStage(); renderRPanel();
+}
+
+function removeImg(id) {
+  images = images.filter(i => i.id !== id);
+  if (selectedId === id) selectedId = images.length ? images[images.length-1].id : null;
+  renderList(); renderStage(); renderRPanel();
+}
+
+// ─── Stage ────────────────────────────────────────
+function renderStage() {
+  stage.querySelectorAll('.s-card').forEach(c => c.remove());
+  arrowSvg.innerHTML = '';
+
+  images.forEach(img => {
+    const card = document.createElement('div');
+    card.className = 's-card' + (img.id === selectedId ? ' sel' : '');
+    card.dataset.id = img.id;
+    const size = img.cfg.size ?? 1;
+    card.style.cssText = `left:${img.endX}px;top:${img.endY}px;z-index:${img.cfg.zIndex};width:${165*size}px`;
+    if (img.type === 'text') {
+      card.innerHTML = `<div style="
+        width:100%;
+        height:100%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:10px;
+        text-align:center;
+        font-size:${img.cfg.fontSize}px;
+        font-weight:${img.cfg.weight};
+        color:${img.cfg.color};
+        font-family:'SceneCustomFont', var(--serif);
+        background:rgba(0,0,0,0.35);
+      ">${img.cfg.text || 'Your text'}</div>`;
+    } else {
+      card.innerHTML = `<img src="${img.src}" alt=""/><div class="s-card-name">${img.name}</div>`;
+    }
+    stage.appendChild(card);
+    makeDrag(card, img);
+  });
+
+  const sel = images.find(i => i.id === selectedId);
+  if (sel) {
+    sMarker.classList.add('on');
+    sMarker.style.left = sel.startX + 'px';
+    sMarker.style.top  = sel.startY + 'px';
+    drawArrow(sel.startX, sel.startY, sel.endX, sel.endY);
+  } else {
+    sMarker.classList.remove('on');
+  }
+}
+
+function drawArrow(x1, y1, x2, y2) {
+  arrowSvg.innerHTML = `
+    <defs>
+      <marker id="ah" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto">
+        <path d="M0,0 L0,5 L6,2.5 z" fill="var(--accent)" opacity=".65"/>
+      </marker>
+    </defs>
+    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+      stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4" opacity=".45"
+      marker-end="url(#ah)"/>`;
+}
+
+// ─── Drag helper ──────────────────────────────────
+function makeDrag(el, img) {
+  el.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+
+    // Select this image without re-rendering the whole stage (which destroys el)
+    if (selectedId !== img.id) {
+      selectedId = img.id;
+      // Update sidebar highlight
+      imgListEl.querySelectorAll('.img-row').forEach(r =>
+        r.classList.toggle('sel', parseInt(r.dataset.id) === img.id));
+      // Update card borders
+      stage.querySelectorAll('.s-card').forEach(c =>
+        c.classList.toggle('sel', parseInt(c.dataset.id) === img.id));
+      // Show start marker
+      sMarker.classList.add('on');
+      sMarker.style.left = img.startX + 'px';
+      sMarker.style.top  = img.startY + 'px';
+      drawArrow(img.startX, img.startY, img.endX, img.endY);
+      renderRPanel();
+    }
+
+    const ox = e.clientX, oy = e.clientY;
+    const sx = img.endX, sy = img.endY;
+
+    const mv = e2 => {
+      img.endX = sx + (e2.clientX - ox);
+      img.endY = sy + (e2.clientY - oy);
+      el.style.left   = img.endX + 'px';
+      el.style.top    = img.endY + 'px';
+      el.style.zIndex = img.cfg.zIndex;
+      drawArrow(img.startX, img.startY, img.endX, img.endY);
+    };
+
+    const up = () => {
+      window.removeEventListener('mousemove', mv);
+      window.removeEventListener('mouseup', up);
+    };
+
+    window.addEventListener('mousemove', mv);
+    window.addEventListener('mouseup', up);
+  });
+}
+
+// Marker drag
+sMarker.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const img = images.find(i => i.id === selectedId);
+  if (!img) return;
+  e.preventDefault(); e.stopPropagation();
+  const ox = e.clientX, oy = e.clientY, sx = img.startX, sy = img.startY;
+  const mv = e2 => {
+    img.startX = sx + (e2.clientX-ox); img.startY = sy + (e2.clientY-oy);
+    sMarker.style.left = img.startX+'px'; sMarker.style.top = img.startY+'px';
+    drawArrow(img.startX, img.startY, img.endX, img.endY);
+  };
+  const up = () => { window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); };
+  window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
+});
+
+function selectImg(id) {
+  selectedId = id;
+  renderList();
+  renderStage();  // full re-render is fine here since we're not mid-drag
+  renderRPanel();
+}
+
+// ─── Right panel ──────────────────────────────────
+function renderRPanel() {
+  // Scene bounds section always visible
+  rpEmpty.style.display = 'none';
+  rpanel.style.display  = 'flex';
+
+  // Update scene bounds inputs from bbox state
+  document.getElementById('bb-x').value = Math.round(bbox.x);
+  document.getElementById('bb-y').value = Math.round(bbox.y);
+  document.getElementById('bb-w').value = Math.round(bbox.w);
+  document.getElementById('bb-h').value = Math.round(bbox.h);
+
+  // Image-specific section: show/hide based on selection
+  const imgSection = document.getElementById('img-section');
+  const img = images.find(i => i.id === selectedId);
+  if (!img) { imgSection.style.display = 'none'; return; }
+  imgSection.style.display = 'block';
+
+  const c = img.cfg;
+  setS('s-zindex','v-zindex', c.zIndex, v=>`${v}`);
+  setS('s-size',  'v-size',   c.size ?? 1, v=>`${Math.round(v*100)}%`);
+  fxGrid.querySelectorAll('.fx-chip').forEach(ch => ch.classList.toggle('on', c.fx.includes(ch.dataset.fx)));
+  setS('s-dur',  'v-dur',   c.dur,   v=>`${v}s`);
+  setS('s-delay','v-delay', c.delay, v=>`${v}s`);
+  setS('s-opa',  'v-opa',   c.opa,   v=>`${v}`);
+  setS('s-dist', 'v-dist',  c.dist,  v=>`${v}`);
+  easeRow.querySelectorAll('.ease-chip').forEach(ch => ch.classList.toggle('on', ch.dataset.ease === c.ease));
+
+  // Text controls visibility
+  const isText = img.type === 'text';
+  txtFields.style.display = isText ? 'block' : 'none';
+  if (isText) {
+    document.getElementById('t-content').value = c.text || '';
+    document.getElementById('s-tsize').value = c.fontSize;
+    document.getElementById('v-tsize').textContent = `${c.fontSize}px`;
+    document.getElementById('t-color').value = c.color || '#ffffff';
+  }
+}
+
+function setS(sid, vid, val, fmt) {
+  document.getElementById(sid).value = val;
+  document.getElementById(vid).textContent = fmt(val);
+}
+
+// FX chips
+fxGrid.addEventListener('click', e => {
+  const chip = e.target.closest('.fx-chip');
+  if (!chip) return;
+  const img = images.find(i => i.id === selectedId);
+  if (!img) return;
+  const f = chip.dataset.fx;
+  const idx = img.cfg.fx.indexOf(f);
+  if (idx === -1) img.cfg.fx.push(f); else img.cfg.fx.splice(idx,1);
+  chip.classList.toggle('on', img.cfg.fx.includes(f));
+  renderList();
+});
+
+// Sliders
+function wireS(sid, vid, key, fmt) {
+  document.getElementById(sid).addEventListener('input', function() {
+    const img = images.find(i => i.id === selectedId); if (!img) return;
+    img.cfg[key] = parseFloat(this.value);
+    document.getElementById(vid).textContent = fmt(this.value);
+  });
+}
+wireS('s-dur',  'v-dur',   'dur',   v=>`${v}s`);
+wireS('s-delay','v-delay', 'delay', v=>`${v}s`);
+wireS('s-opa',  'v-opa',   'opa',   v=>`${v}`);
+wireS('s-dist', 'v-dist',  'dist',  v=>`${v}`);
+
+// Z-index slider — also updates card live and list badge
+document.getElementById('s-zindex').addEventListener('input', function() {
+  const img = images.find(i => i.id === selectedId); if (!img) return;
+  img.cfg.zIndex = parseInt(this.value);
+  document.getElementById('v-zindex').textContent = this.value;
+  // Update card z-index live without full re-render
+  const card = stage.querySelector(`.s-card[data-id="${img.id}"]`);
+  if (card) card.style.zIndex = img.cfg.zIndex;
+  // Refresh z badge in list
+  renderList();
+});
+
+// Size slider — live update card width and list label
+document.getElementById('s-size').addEventListener('input', function() {
+  const img = images.find(i => i.id === selectedId); if (!img) return;
+  const size = parseFloat(this.value) || 1;
+  img.cfg.size = size;
+  document.getElementById('v-size').textContent = `${Math.round(size*100)}%`;
+  const card = stage.querySelector(`.s-card[data-id="${img.id}"]`);
+  if (card) card.style.width = (165*size) + 'px';
+  renderList();
+});
+
+// Easing
+easeRow.addEventListener('click', e => {
+  const chip = e.target.closest('.ease-chip'); if (!chip) return;
+  const img = images.find(i => i.id === selectedId); if (!img) return;
+  img.cfg.ease = chip.dataset.ease;
+  easeRow.querySelectorAll('.ease-chip').forEach(c => c.classList.toggle('on', c===chip));
+});
+
+// Text field wiring
+document.getElementById('t-content').addEventListener('input', function() {
+  const img = images.find(i => i.id === selectedId && i.type === 'text');
+  if (!img) return;
+  img.cfg.text = this.value;
+  const card = stage.querySelector(`.s-card[data-id="${img.id}"]`);
+  if (card) {
+    const inner = card.firstElementChild;
+    if (inner) inner.textContent = img.cfg.text || 'Your text';
+  }
+  renderList();
+});
+document.getElementById('s-tsize').addEventListener('input', function() {
+  const img = images.find(i => i.id === selectedId && i.type === 'text');
+  if (!img) return;
+  const v = parseInt(this.value,10) || 24;
+  img.cfg.fontSize = v;
+  document.getElementById('v-tsize').textContent = `${v}px`;
+  const card = stage.querySelector(`.s-card[data-id="${img.id}"] div`);
+  if (card) card.style.fontSize = v + 'px';
+});
+document.getElementById('t-color').addEventListener('input', function() {
+  const img = images.find(i => i.id === selectedId && i.type === 'text');
+  if (!img) return;
+  img.cfg.color = this.value;
+  const card = stage.querySelector(`.s-card[data-id="${img.id}"] div`);
+  if (card) card.style.color = this.value;
+});
+
+// ─── Build "from" style for an image ─────────────
+function buildFrom(img) {
+  const c = img.cfg;
+  const fx = c.fx;
+  let transforms = [], filters = [], opacity = c.opa;
+
+  if (fx.includes('slideUp'))    transforms.push(`translateY(${c.dist}px)`);
+  if (fx.includes('slideDown'))  transforms.push(`translateY(-${c.dist}px)`);
+  if (fx.includes('slideLeft'))  transforms.push(`translateX(${c.dist}px)`);
+  if (fx.includes('slideRight')) transforms.push(`translateX(-${c.dist}px)`);
+  if (fx.includes('scaleUp'))    transforms.push(`scale(0.75)`);
+  if (fx.includes('scaleDown'))  transforms.push(`scale(1.35)`);
+  if (fx.includes('rotateIn'))   transforms.push(`rotate(-18deg) scale(0.85)`);
+  if (fx.includes('flipX'))      transforms.push(`perspective(500px) rotateY(85deg)`);
+  if (fx.includes('blurIn'))     filters.push(`blur(14px)`);
+
+  const parts = [`opacity:${opacity}`];
+  if (transforms.length) parts.push(`transform:${transforms.join(' ')}`);
+  if (filters.length)    parts.push(`filter:${filters.join(' ')}`);
+  return parts.join(';');
+}
+
+// ─── Preview ──────────────────────────────────────
+document.getElementById('btn-preview').addEventListener('click', () => {
+  if (!images.length) return;
+  flash.classList.add('on');
+  setTimeout(() => {
+    flash.classList.remove('on');
+    images.forEach((img, i) => {
+      const card = stage.querySelector(`.s-card[data-id="${img.id}"]`);
+      if (!card) return;
+      const cfg = img.cfg;
+      const fx = cfg.fx;
+
+      // Build extra transforms on top of the centering translate
+      let extraTransforms = [];
+      if (fx.includes('scaleUp'))    extraTransforms.push('scale(0.75)');
+      if (fx.includes('scaleDown'))  extraTransforms.push('scale(1.35)');
+      if (fx.includes('rotateIn'))   extraTransforms.push('rotate(-18deg)');
+      if (fx.includes('flipX'))      extraTransforms.push('perspective(500px) rotateY(85deg)');
+
+      // Slide offsets applied via left/top, not transform
+      let startX = img.startX;
+      let startY = img.startY;
+
+      const fromTransform = 'translate(-50%,-50%)' + (extraTransforms.length ? ' ' + extraTransforms.join(' ') : '');
+
+      card.style.transition = 'none';
+      card.style.opacity    = String(cfg.opa);
+      card.style.transform  = fromTransform;
+      card.style.filter     = fx.includes('blurIn') ? 'blur(14px)' : 'none';
+      card.style.left       = startX + 'px';
+      card.style.top        = startY + 'px';
+      void card.offsetWidth;
+
+      const totalDelay = (cfg.delay + i * 0.13) * 1000;
+      setTimeout(() => {
+        card.style.transition = `all ${cfg.dur}s ${cfg.ease}`;
+        card.style.opacity    = '1';
+        card.style.transform  = 'translate(-50%,-50%)';
+        card.style.filter     = 'none';
+        card.style.left       = img.endX + 'px';
+        card.style.top        = img.endY + 'px';
+      }, totalDelay);
+    });
+  }, 120);
+});
+
+// ─── Export as ZIP (index.html + assets/) ─────────
+document.getElementById('btn-export').addEventListener('click', async () => {
+  if (!images.length) { alert('Add some images first!'); return; }
+
+  // Load JSZip dynamically
+  if (!window.JSZip) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  const sw = Math.round(bbox.w);
+  const sh = Math.round(bbox.h);
+  const sx = Math.round(bbox.x);
+  const sy = Math.round(bbox.y);
+  const zip = new JSZip();
+  const assetsFolder = zip.folder('assets');
+
+  // Optional custom font: add to assets and build CSS snippet
+  let fontFileName = '';
+  let fontCss = '.text-layer{white-space:pre-wrap;}';
+  if (customFont && customFont.src) {
+    const fMime = customFont.src.match(/^data:([^;]+);/)?.[1] || 'font/ttf';
+    const fExt  = (fMime.split('/')[1] || 'ttf').replace('x-font-ttf','ttf');
+    fontFileName = `custom-font.${fExt}`;
+    const fb64 = customFont.src.split(',')[1];
+    assetsFolder.file(fontFileName, fb64, { base64: true });
+    fontCss = `
+@font-face{
+  font-family:'SceneCustomFont';
+  src:url('assets/${fontFileName}') format('truetype');
+  font-weight:normal;
+  font-style:normal;
+}
+.text-layer{
+  white-space:pre-wrap;
+  font-family:'SceneCustomFont',system-ui,sans-serif;
+}`;
+  }
+
+  // For each layer, build its HTML and add any assets.
+  const cardData = images.map((img, i) => {
+    const from = buildFrom(img);
+    const size = img.cfg.size ?? 1;
+    const td   = (img.cfg.delay + i * 0.13).toFixed(3);
+
+    // Positions are canvas-relative; make them scene-relative by subtracting bbox origin
+    const relStartX = Math.round(img.startX - bbox.x);
+    const relStartY = Math.round(img.startY - bbox.y);
+    const relEndX   = Math.round(img.endX   - bbox.x);
+    const relEndY   = Math.round(img.endY   - bbox.y);
+
+    if (img.type === 'text') {
+      const safeText = (img.cfg.text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return {
+        html: `  <div class="ac text-layer"
+       style="left:${relStartX}px;top:${relStartY}px;z-index:${img.cfg.zIndex};width:${Math.round(165*size)}px;${from};color:${img.cfg.color};font-size:${img.cfg.fontSize}px;font-weight:${img.cfg.weight};text-align:center;display:flex;align-items:center;justify-content:center;padding:10px;"
+       data-ex="${relEndX}" data-ey="${relEndY}"
+       data-d="${img.cfg.dur}" data-delay="${td}" data-e="${img.cfg.ease}">
+    ${safeText}
+  </div>`
+      };
+    }
+
+    // Image layer: derive a safe filename, strip the data URL header,
+    // add the raw bytes to assets/, and use "assets/filename" in the HTML.
+    const mime     = img.src.match(/^data:([^;]+);/)?.[1] || 'image/png';
+    const ext      = mime.split('/')[1].replace('jpeg','jpg');
+    const safeName = img.name.replace(/[^a-zA-Z0-9_\-]/g, '_') || `image_${i+1}`;
+    const filename = `${safeName}.${ext}`;
+    const b64      = img.src.split(',')[1];
+    assetsFolder.file(filename, b64, { base64: true });
+
+    return {
+      html: `  <div class="ac" style="left:${relStartX}px;top:${relStartY}px;z-index:${img.cfg.zIndex};width:${Math.round(165*size)}px;${from}"
+       data-ex="${relEndX}" data-ey="${relEndY}"
+       data-d="${img.cfg.dur}" data-delay="${td}" data-e="${img.cfg.ease}">
+    <img src="assets/${filename}" alt="${img.name}"/>
+  </div>`
+    };
+  });
+
+  const cardsHTML = cardData.map(c => c.html).join('\n');
+
+  const indexHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Animated Images</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0e0e0f;min-height:100vh;position:relative}
+.scene{position:absolute;left:${sx}px;top:${sy}px;width:${sw}px;height:${sh}px;overflow:hidden}
+.ac{position:absolute;transform:translate(-50%,-50%)}
+.ac img{
+  width:100%;
+  height:auto;
+  display:block;
+}
+${fontCss}
+</style>
+</head>
+<body>
+<div class="scene">
+${cardsHTML}
+</div>
+<script>
+window.addEventListener('load', () => {
+  document.querySelectorAll('.ac').forEach(el => {
+    const ex    = parseFloat(el.dataset.ex);
+    const ey    = parseFloat(el.dataset.ey);
+    const d     = parseFloat(el.dataset.d);
+    const delay = parseFloat(el.dataset.delay);
+    const e     = el.dataset.e;
+    setTimeout(() => {
+      el.style.transition = 'all ' + d + 's ' + e;
+      el.style.opacity    = '1';
+      el.style.transform  = 'translate(-50%,-50%)';
+      el.style.filter     = 'none';
+      el.style.left       = ex + 'px';
+      el.style.top        = ey + 'px';
+    }, delay * 1000);
+  });
+});
+<\/script>
+</body>
+</html>`;
+
+  zip.file('index.html', indexHTML);
+
+  // Generate and download the zip
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'animated-images.zip';
+  a.click();
+});
+</script>
+</body>
+</html>
